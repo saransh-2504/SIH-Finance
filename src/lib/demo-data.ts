@@ -1,4 +1,4 @@
-import { calculateEmi, calculateFinance } from "@/lib/financial";
+import { calculateBusinessModel, calculateEmi, calculateFinance } from "@/lib/financial";
 
 export type BusinessKey = "Dairy" | "Poultry" | "Tailoring" | "Retail" | "Food Processing";
 
@@ -29,11 +29,49 @@ const profile: Record<BusinessKey, { score: number; demand: number; competition:
   "Food Processing": { score: 72, demand: 76, competition: 70, capital: 78, risk: 60, opportunity: 81, revenue: 70000, expense: 48000 },
 };
 
+const operatingAssumptions: Record<BusinessKey, { customers: number; price: number; variableCost: number; rent: number; wages: number; utilities: number; transport: number; marketing: number }> = {
+  Dairy: { customers: 1900, price: 55, variableCost: 34, rent: 6000, wages: 18000, utilities: 4500, transport: 9000, marketing: 2500 },
+  Poultry: { customers: 1250, price: 70, variableCost: 43, rent: 5000, wages: 14000, utilities: 4500, transport: 7500, marketing: 2500 },
+  Tailoring: { customers: 260, price: 240, variableCost: 80, rent: 7000, wages: 12000, utilities: 2500, transport: 2500, marketing: 2500 },
+  Retail: { customers: 1700, price: 65, variableCost: 52, rent: 12000, wages: 18000, utilities: 4500, transport: 3500, marketing: 3000 },
+  "Food Processing": { customers: 950, price: 125, variableCost: 72, rent: 9000, wages: 22000, utilities: 7000, transport: 8000, marketing: 5000 },
+};
+
+export function opportunityRadar(margin: number) {
+  return comparisonBusinesses.concat("Food Processing").map((business) => {
+    const assessment = buildAssessment(business, margin);
+    return {
+      business,
+      score: assessment.score,
+      competition: business === "Retail" ? "Very High" : assessment.metrics[1].value > 70 ? "Low" : "Medium",
+      capitalFit: assessment.metrics[2].value > 90 ? "Very High" : assessment.metrics[2].value > 78 ? "High" : "Medium",
+      risk: assessment.metrics[3].value > 78 ? "Low" : assessment.metrics[3].value > 62 ? "Medium" : "High",
+      opportunity: assessment.metrics[4].value > 80 ? "High" : "Medium",
+      assessment,
+    };
+  }).sort((a, b) => b.score - a.score);
+}
+
 export function buildAssessment(business: BusinessKey, margin: number) {
   const finance = calculateFinance(margin);
   const scheme = finance.scheme;
   const emi = scheme ? calculateEmi(finance.cappedLoanAmount, scheme.interestRate, scheme.tenureYears) : { emi: 0, totalInterest: 0, totalRepayment: 0 };
   const p = profile[business];
+  const assumptions = operatingAssumptions[business];
+  const model = calculateBusinessModel({
+    monthlyCustomers: assumptions.customers,
+    averagePrice: assumptions.price,
+    variableCostPerSale: assumptions.variableCost,
+    rent: assumptions.rent,
+    wages: assumptions.wages,
+    utilities: assumptions.utilities,
+    transport: assumptions.transport,
+    marketing: assumptions.marketing,
+    workingCapital: finance.projectCost * 0.22,
+    loanAmount: finance.cappedLoanAmount,
+    interestRate: scheme?.interestRate ?? 0,
+    tenureYears: scheme?.tenureYears ?? 1,
+  });
 
   return {
     business,
@@ -45,8 +83,24 @@ export function buildAssessment(business: BusinessKey, margin: number) {
       { label: "Market Demand", value: p.demand, why: "Demand is estimated from available household, channel and purchase-frequency indicators. Demo Data." },
       { label: "Competition", value: p.competition, why: "Similar businesses are visible, but concentration appears higher near main market points. Demo Data." },
       { label: "Capital Fit", value: p.capital, why: "Your stated margin creates project capacity under the deterministic 10 percent contribution structure." },
+      { label: "Profitability Potential", value: Math.min(92, Math.round(model.repaymentCoverage * 38)), why: "Based on operating surplus, repayment coverage and contribution margin from the financial model." },
+      { label: "Supplier Accessibility", value: business === "Dairy" ? 76 : 82, why: "Uses regional availability assumptions that should be validated before purchase commitments." },
+      { label: "Distribution Potential", value: business === "Retail" ? 58 : 83, why: "Reflects direct delivery, local store, weekly market and institutional channel fit." },
+      { label: "Operational Complexity", value: business === "Dairy" ? 66 : 78, why: "Higher scores mean simpler operations; livestock and cold-chain needs reduce this metric." },
+      { label: "Seasonality", value: business === "Dairy" ? 70 : 76, why: "Seasonal input, weather and demand shifts are included as a resilience adjustment." },
+      { label: "Financial Resilience", value: model.status === "Healthy" ? 84 : model.status === "Watch" ? 68 : 42, why: "Derived from repayment coverage, cash flow after EMI and working-capital runway." },
+      { label: "Funding Compatibility", value: scheme ? 86 : 35, why: "Derived from deterministic scheme boundaries, maximum loan caps and project cost fit." },
       { label: "Risk", value: p.risk, why: "Risk reflects operating cost volatility, seasonality and repayment buffer from simulated cash flow." },
       { label: "Opportunity", value: p.opportunity, why: "The model rewards underserved channels and recurring customer behavior where available indicators support it." },
+    ],
+    scoreDrivers: [
+      "+18 Strong local demand indicators",
+      "+15 Manageable competition pattern",
+      "+14 Strong capital compatibility",
+      "+12 Supplier and distribution accessibility",
+      "+10 Pricing and repeat-purchase potential",
+      "-7 Seasonal or input-cost volatility",
+      "-5 Working-capital pressure",
     ],
     marketReach: {
       radius: "10 km",
@@ -71,6 +125,9 @@ export function buildAssessment(business: BusinessKey, margin: number) {
     pricing: business === "Dairy" ? { local: "Rs. 48-58/litre", start: "Rs. 50-56/litre", margin: "18-24% indicative" } : { local: "Insufficient verified local price data", start: "Use cost-plus pilot pricing", margin: "Estimate after supplier quotes" },
     finance,
     emi,
+    model,
+    assumptions,
+    readiness: business === "Dairy" ? 64 : business === "Tailoring" ? 78 : 70,
     monthly: { revenue: p.revenue, expense: p.expense },
   };
 }

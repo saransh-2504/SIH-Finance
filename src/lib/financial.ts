@@ -18,6 +18,36 @@ export type FinanceResult = {
   unsupportedReason?: string;
 };
 
+export type BusinessModelInput = {
+  monthlyCustomers: number;
+  averagePrice: number;
+  variableCostPerSale: number;
+  rent: number;
+  wages: number;
+  utilities: number;
+  transport: number;
+  marketing: number;
+  workingCapital: number;
+  loanAmount: number;
+  interestRate: number;
+  tenureYears: number;
+};
+
+export type BusinessModelResult = {
+  revenue: number;
+  variableCosts: number;
+  fixedCosts: number;
+  operatingSurplus: number;
+  emi: number;
+  cashFlowAfterDebt: number;
+  repaymentCoverage: number;
+  breakEvenCustomers: number;
+  cashRunwayMonths: number;
+  survivalRevenue: number;
+  status: "Healthy" | "Watch" | "High Risk";
+  borrowAdvice: "Proceed" | "Reduce Financing" | "Don't Borrow Yet";
+};
+
 export const schemes: Scheme[] = [
   {
     name: "Micro Finance Scheme",
@@ -129,4 +159,36 @@ export function quarterlySchedule(principal: number, annualRate: number, tenureY
   }
 
   return rows;
+}
+
+export function calculateBusinessModel(input: BusinessModelInput): BusinessModelResult {
+  const revenue = input.monthlyCustomers * input.averagePrice;
+  const variableCosts = input.monthlyCustomers * input.variableCostPerSale;
+  const fixedCosts = input.rent + input.wages + input.utilities + input.transport + input.marketing;
+  const operatingSurplus = revenue - variableCosts - fixedCosts;
+  const { emi } = calculateEmi(input.loanAmount, input.interestRate, input.tenureYears);
+  const cashFlowAfterDebt = operatingSurplus - emi;
+  const repaymentCoverage = emi > 0 ? operatingSurplus / emi : 99;
+  const contributionMargin = Math.max(1, input.averagePrice - input.variableCostPerSale);
+  const breakEvenCustomers = Math.ceil((fixedCosts + emi) / contributionMargin);
+  const monthlyBurn = Math.max(1, fixedCosts + variableCosts - revenue + emi);
+  const cashRunwayMonths = cashFlowAfterDebt >= 0 ? 12 : Math.floor(input.workingCapital / monthlyBurn);
+  const survivalRevenue = variableCosts + fixedCosts + emi;
+  const status = repaymentCoverage >= 1.8 && cashFlowAfterDebt > 10000 ? "Healthy" : repaymentCoverage >= 1.2 && cashFlowAfterDebt >= 0 ? "Watch" : "High Risk";
+  const borrowAdvice = status === "High Risk" ? "Don't Borrow Yet" : status === "Watch" ? "Reduce Financing" : "Proceed";
+
+  return {
+    revenue,
+    variableCosts,
+    fixedCosts,
+    operatingSurplus,
+    emi,
+    cashFlowAfterDebt,
+    repaymentCoverage,
+    breakEvenCustomers,
+    cashRunwayMonths,
+    survivalRevenue,
+    status,
+    borrowAdvice,
+  };
 }

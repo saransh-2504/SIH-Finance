@@ -1,9 +1,9 @@
 export const en = {
   appName: "GramUdyam Advisor",
-  hero: "Turn Your Local Market Into Your Business Advantage.",
-  subhero: "AI-powered hyper-local business intelligence and financial planning for rural entrepreneurs.",
-  start: "Start Business Assessment",
-  schemes: "Explore Government Schemes",
+  hero: "Before You Borrow, Know Your Business.",
+  subhero: "AI-powered business intelligence that helps you discover the right opportunity, understand your local market, test financial risks, and build a safer path to funding.",
+  start: "Analyze My Business",
+  schemes: "Find the Best Business for My Capital",
   dashboard: "Dashboard",
   assessment: "Assessment",
   finance: "Finance",
