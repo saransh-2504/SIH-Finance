@@ -15,6 +15,6 @@ services:
       - key: LLM_MODEL
         value: gpt-4o-mini
       - key: ALLOWED_ORIGINS_RAW
-        sync: false
+        value: https://sih-finance-snowy.vercel.app
       - key: PYTHON_VERSION
         value: "3.11.0"
