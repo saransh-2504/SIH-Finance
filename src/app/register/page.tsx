@@ -57,7 +57,13 @@ export default function RegisterPage() {
       router.push("/dashboard");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Registration failed.";
-      toast.error(msg);
+      if (msg.includes("waking up") || msg.includes("cold start")) {
+        toast.error("Server is waking up. Please wait ~30 seconds and try again.", { duration: 6000 });
+      } else if (msg.includes("Unable to connect") || msg.includes("fetch")) {
+        toast.error("Cannot reach the server. Please check your internet connection.", { duration: 5000 });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSubmitting(false);
     }

@@ -3,12 +3,15 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff, Landmark } from "lucide-react";
+import { Eye, EyeOff, Landmark, Loader2, Wifi, WifiOff } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
+import { healthApi } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
+
+type ServerStatus = "checking" | "online" | "offline" | "cold-starting";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,11 +21,36 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [serverStatus, setServerStatus] = useState<ServerStatus>("checking");
 
   // Redirect if already logged in
   useEffect(() => {
     if (!loading && user) router.replace("/dashboard");
   }, [user, loading, router]);
+
+  // Check backend health on mount
+  useEffect(() => {
+    let retries = 0;
+    async function checkHealth() {
+      try {
+        await healthApi.check();
+        setServerStatus("online");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : "";
+        if (msg.includes("cold start") || msg.includes("waking")) {
+          setServerStatus("cold-starting");
+        } else {
+          setServerStatus("offline");
+        }
+        // Retry up to 3 times with 5s delay (handles Render cold start ~30s)
+        if (retries < 3) {
+          retries++;
+          setTimeout(checkHealth, 8000);
+        }
+      }
+    }
+    checkHealth();
+  }, []);
 
   function validate() {
     const errs: Record<string, string> = {};
@@ -42,7 +70,14 @@ export default function LoginPage() {
       router.push("/dashboard");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Login failed.";
-      toast.error(msg);
+      // User-friendly messages for common errors
+      if (msg.includes("waking up") || msg.includes("cold start")) {
+        toast.error("Server is waking up. Please wait ~30 seconds and try again.", { duration: 6000 });
+      } else if (msg.includes("Unable to connect") || msg.includes("fetch")) {
+        toast.error("Cannot reach the server. Please check your internet connection.", { duration: 5000 });
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setSubmitting(false);
     }
@@ -71,20 +106,46 @@ export default function LoginPage() {
           </p>
         </div>
         <div className="rounded-2xl border border-white/10 p-4 text-xs text-white/50 leading-relaxed">
-          All financial calculations are deterministic and rule-based. 
+          All financial calculations are deterministic and rule-based.
           AI responses are advisory only. No guarantee of loan approval or business success.
         </div>
       </section>
 
       {/* Right panel */}
       <section className="flex items-center justify-center p-5">
-        <div className="w-full max-w-md space-y-6">
+        <div className="w-full max-w-md space-y-5">
           <div className="text-center">
             <h2 className="text-2xl font-bold text-[#1f2937]">Welcome back</h2>
             <p className="mt-1 text-sm text-[#66715f]">
               Sign in to your business intelligence workspace
             </p>
           </div>
+
+          {/* Server status banner */}
+          {serverStatus === "checking" && (
+            <div className="flex items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-4 py-3 text-sm text-[#6b7280]">
+              <Loader2 className="size-4 animate-spin text-[#9ca3af]" />
+              Checking server status…
+            </div>
+          )}
+          {serverStatus === "cold-starting" && (
+            <div className="flex items-center gap-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-sm text-[#92400e]">
+              <Loader2 className="size-4 animate-spin shrink-0" />
+              <span>Server is waking up — this takes ~30 seconds on the free tier. Please wait…</span>
+            </div>
+          )}
+          {serverStatus === "offline" && (
+            <div className="flex items-center gap-2 rounded-xl border border-[#fca5a5] bg-[#fef2f2] px-4 py-3 text-sm text-[#991b1b]">
+              <WifiOff className="size-4 shrink-0" />
+              <span>Server appears offline. Check your internet or try again in a moment.</span>
+            </div>
+          )}
+          {serverStatus === "online" && (
+            <div className="flex items-center gap-2 rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3 text-sm text-[#166534]">
+              <Wifi className="size-4 shrink-0" />
+              Server online — ready to sign in.
+            </div>
+          )}
 
           <Card className="border-[#d8d1bd] shadow-sm">
             <CardContent className="pt-6">
@@ -99,10 +160,9 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@example.com"
                     aria-invalid={!!errors.email}
-                    aria-describedby={errors.email ? "email-error" : undefined}
                   />
                   {errors.email && (
-                    <p id="email-error" className="text-xs text-[#dc2626]">{errors.email}</p>
+                    <p className="text-xs text-[#dc2626]">{errors.email}</p>
                   )}
                 </div>
 
@@ -118,7 +178,6 @@ export default function LoginPage() {
                       placeholder="••••••••"
                       className="pr-10"
                       aria-invalid={!!errors.password}
-                      aria-describedby={errors.password ? "pw-error" : undefined}
                     />
                     <button
                       type="button"
@@ -130,7 +189,7 @@ export default function LoginPage() {
                     </button>
                   </div>
                   {errors.password && (
-                    <p id="pw-error" className="text-xs text-[#dc2626]">{errors.password}</p>
+                    <p className="text-xs text-[#dc2626]">{errors.password}</p>
                   )}
                 </div>
 
@@ -143,9 +202,15 @@ export default function LoginPage() {
                 <Button
                   type="submit"
                   className="w-full bg-[#166534] hover:bg-[#14532d]"
-                  disabled={submitting}
+                  disabled={submitting || serverStatus === "cold-starting"}
                 >
-                  {submitting ? "Signing in…" : "Sign in"}
+                  {submitting ? (
+                    <><Loader2 className="size-4 mr-2 animate-spin" /> Signing in…</>
+                  ) : serverStatus === "cold-starting" ? (
+                    <><Loader2 className="size-4 mr-2 animate-spin" /> Waiting for server…</>
+                  ) : (
+                    "Sign in"
+                  )}
                 </Button>
               </form>
             </CardContent>

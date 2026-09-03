@@ -1,9 +1,10 @@
 /**
  * Typed API client — all calls go through here.
- * The base URL comes from NEXT_PUBLIC_API_URL.
+ * The base URL comes from NEXT_PUBLIC_API_URL (baked in at build time).
+ * Falls back to a clear error if not set.
  */
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -14,6 +15,12 @@ async function request<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
+  if (!BASE) {
+    throw new Error(
+      "API URL is not configured. Set NEXT_PUBLIC_API_URL in your Vercel environment variables.",
+    );
+  }
+
   const token = getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -21,10 +28,32 @@ async function request<T>(
   };
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      ...options,
+      headers,
+      // 15 second timeout — prevents indefinite hang on Render cold start
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      throw new ApiError(
+        "The server is waking up (cold start). Please wait 30 seconds and try again.",
+        503,
+      );
+    }
+    if (err instanceof TypeError && err.message.includes("fetch")) {
+      throw new ApiError(
+        "Unable to connect to the server. Check your internet connection.",
+        0,
+      );
+    }
+    throw err;
+  }
 
   if (!res.ok) {
-    let message = `Request failed: ${res.status}`;
+    let message = `Request failed (${res.status})`;
     try {
       const body = await res.json();
       message = body.detail ?? body.message ?? message;
