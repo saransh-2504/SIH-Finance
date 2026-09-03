@@ -14,7 +14,7 @@ services:
         sync: false
       - key: LLM_MODEL
         value: gpt-4o-mini
-      - key: ALLOWED_ORIGINS
+      - key: ALLOWED_ORIGINS_RAW
         sync: false
       - key: PYTHON_VERSION
         value: "3.11.0"
