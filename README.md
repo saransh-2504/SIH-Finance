@@ -1,105 +1,207 @@
 # GramUdyam Advisor
 
-AI-assisted hyper-local business intelligence and deterministic financial advisory for rural micro-entrepreneurs, built as an SIH internal hackathon prototype for the MoSJE problem statement.
+**AI-Powered Hyper-Local Business Intelligence & Financial Decision Platform**
+
+Helps rural entrepreneurs answer: What should I start here, is it viable in my local market, how should I structure it financially, and can I safely afford the financing?
+
+---
+
+## Problem
+
+Many rural and semi-urban first-time entrepreneurs have access to government-supported concessional loans but lack the information required to start a viable business. They select businesses based on word-of-mouth, don't know whether a market is saturated, and don't understand how much capital they require.
 
 ## Solution
 
-The app helps an entrepreneur answer:
+A deterministic financial engine + hyper-local market analysis + AI advisor that gives evidence-based answers — not just scheme routing.
 
-- Can I start this business here?
-- What business best fits my location and capital?
-- How much money do I need?
-- Which scheme appears applicable?
-- Can the business reasonably support repayment?
+Core questions answered:
+1. Can I start this business here?
+2. What business is best for my location and capital?
+3. How much money do I actually need?
+4. Which financing scheme applies?
+5. Can my business realistically support repayment?
 
-AI is positioned as an advisor, not the primary interface. Financial calculations, scheme routing, EMI and repayment schedules are deterministic and rule-based.
+---
 
-## Current Prototype
+## Architecture
 
-- Next.js implementation using the existing repository stack.
-- Responsive landing page, dashboard, guided assessment, comparison, finance planner, schemes, advisor and reports routes.
-- Demo Mode for Hoskote Dairy, Rural Tailoring and Food Processing scenarios.
-- Clearly labeled Demo Data for local market, competitor and pricing indicators.
-- Deterministic finance service in `src/lib/financial.ts`.
-- FastAPI backend skeleton in `backend/` for production API expansion.
-
-## Tech Stack
-
-- Frontend: Next.js, React, TypeScript, Tailwind CSS, shadcn/ui, Recharts, Lucide React
-- Backend skeleton: FastAPI, Pydantic, SQLAlchemy
-- Database target: PostgreSQL with PostGIS
-- AI/RAG target: LangChain, ChromaDB, embeddings, LLM API
-
-## Run Locally
-
-```bash
-bun install
-bun run dev --port 4000
+```
+Frontend (Next.js, Vercel)  ←→  Backend (FastAPI, Render)  ←→  PostgreSQL
+                                        ↑
+                                   OpenAI (optional)
 ```
 
-The sandbox normally already runs the dev server on port 4000.
+### Frontend
+- Next.js 16 · React 19 · TypeScript · Tailwind CSS v4
+- shadcn/ui components · Recharts · Lucide React
+- Real JWT auth with backend · Context-based state management
+- Fully responsive (desktop + tablet + mobile)
+
+### Backend
+- FastAPI · SQLAlchemy · PostgreSQL
+- JWT auth with bcrypt password hashing
+- All financial calculations are deterministic (no LLM)
+- OpenAI optional for AI advisor (graceful fallback if key missing)
+
+---
+
+## Financial Engine (Deterministic)
+
+```
+Project Cost   = Available Capital / 0.10
+Loan Amount    = Project Cost × 0.90 (subject to scheme caps)
+```
+
+**Scheme routing:**
+| Project Cost | Scheme | Rate | Tenure | Moratorium | Max Loan |
+|---|---|---|---|---|---|
+| ≤ Rs. 1.40L | Micro Finance | 6.5% | 3 years | 3 months | Rs. 1.25L |
+| Rs. 1.40L–Rs. 50L | Term Loan | 8% | 7 years | 6 months | Rs. 45L |
+| > Rs. 50L | Unsupported | — | — | — | — |
+
+---
+
+## Quick Start
+
+### Prerequisites
+- Node.js v18+
+- Python 3.11+
+- PostgreSQL (local or managed — see Docker section)
+
+### 1. Clone and install frontend
+```bash
+git clone https://github.com/saransh-2504/SIH-Finance.git
+cd SIH-Finance
+npm install
+cp .env.example .env
+# Set NEXT_PUBLIC_API_URL to your backend URL
+```
+
+### 2. Set up backend
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+cp .env.example .env
+# Fill DATABASE_URL, AUTH_SECRET, LLM_API_KEY (optional)
+```
+
+### 3. Start PostgreSQL (Docker)
+```bash
+docker-compose up -d postgres
+```
+
+### 4. Run backend
+```bash
+cd backend
+uvicorn app.main:app --reload --port 8000
+```
+Tables are created automatically on startup.
+
+### 5. Run frontend
+```bash
+npm run dev
+```
+Open http://localhost:3000
+
+---
 
 ## Environment Variables
 
-Copy `.env.example` to `.env` and fill real values outside version control.
+### Frontend (`.env`)
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
-- `DATABASE_URL` PostgreSQL connection string
-- `AUTH_SECRET` server-side auth signing secret
-- `LLM_API_KEY` server-only LLM provider key
-- `MAP_API_KEY` optional map provider key
-- `NEXT_PUBLIC_APP_URL` deployed app origin
+### Backend (`backend/.env`)
+```
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/rural_business_advisor
+AUTH_SECRET=replace-with-a-long-random-secret
+LLM_API_KEY=sk-replace-with-openai-key    # optional
+LLM_MODEL=gpt-4o-mini
+ALLOWED_ORIGINS=["http://localhost:3000"]
+```
 
-## Financial Engine
+---
 
-Rules implemented:
+## Deployment
 
-- `Project Cost = Available Margin / 0.10`
-- `Loan Amount = Project Cost * 0.90`
-- Micro Finance: project cost up to Rs. 1.40 lakh, max loan Rs. 1.25 lakh, 6.5%, 3 years, 3-month moratorium
-- Term Loan: above Rs. 1.40 lakh and up to Rs. 50 lakh, max loan Rs. 45 lakh, 8%, 7 years, 6-month moratorium
-- Above Rs. 50 lakh: unsupported; user is asked to consult the financing authority
+### Frontend → Vercel
+1. Push repo to GitHub
+2. Import project on vercel.com
+3. Set env var `NEXT_PUBLIC_API_URL` to your Render backend URL
+4. Deploy
 
-Boundary conditions are captured in `tests/financial.test.ts`.
+### Backend → Render
+1. Create a new Web Service on render.com
+2. Root directory: `backend`
+3. Build command: `pip install -r requirements.txt`
+4. Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+5. Add environment variables: `DATABASE_URL`, `AUTH_SECRET`, `LLM_API_KEY`, `ALLOWED_ORIGINS`
+
+### Database → Neon / Supabase / Render Postgres
+- Use any managed PostgreSQL provider
+- Set `DATABASE_URL` in backend env vars
+- Tables are created automatically on first startup (SQLAlchemy `create_all`)
+
+---
 
 ## API Endpoints
 
-Next.js prototype endpoints:
+Backend auto-docs at `/docs` and `/redoc`.
 
-- `POST /api/finance/calculate`
-- `GET /api/schemes`
-- `POST /api/ai/chat`
-- `GET /api/reports/{id}`
+```
+POST /api/auth/register
+POST /api/auth/login
+GET  /api/auth/me
+PATCH /api/auth/me
+POST /api/auth/change-password
+DELETE /api/auth/me
 
-FastAPI production skeleton exposes `/health` and is structured for `/api/auth`, `/api/assessments`, `/api/market`, `/api/finance`, `/api/schemes`, `/api/ai` and `/api/reports`.
+POST /api/assessments
+GET  /api/assessments
+GET  /api/assessments/{id}
+DELETE /api/assessments/{id}
 
-## Database Plan
+POST /api/finance/calculate
+POST /api/finance/business-model
+GET  /api/finance/schemes
 
-Production tables should include users, locations, businesses, business assessments, competitors, schemes, financial plans, reports and conversations. PostGIS spatial indexes should be used for radius and competitor density queries.
+GET  /api/opportunities
 
-## AI/RAG Plan
+POST /api/ai/chat
 
-Pipeline:
+GET  /api/reports/{id}
 
-```text
-User Question -> Intent Detection -> Retrieve Knowledge -> Retrieve Assessment Data -> LLM -> Grounded Response
+GET  /health
 ```
 
-The AI must never invent scheme rules, local statistics, loan approval, profit or market demand. It should cite official scheme documents where available and fall back safely when retrieval fails.
+---
 
-## Security Notes
+## Security
 
-- Do not expose `LLM_API_KEY`, `DATABASE_URL` or `AUTH_SECRET` in frontend code.
-- Use secure password hashing or managed authentication in production.
-- Add authorization checks to every protected backend request.
-- Validate all financial inputs server-side.
-- Use secure cookies, CSRF protection where applicable, CORS restrictions and rate limiting.
+- Passwords hashed with bcrypt
+- JWT tokens (7-day expiry by default)
+- All protected endpoints require `Authorization: Bearer <token>`
+- Ownership checks — users can only access their own assessments
+- No API keys exposed in frontend code
+- Input validation on both frontend and backend (Pydantic)
+- CORS restricted to configured origins
 
-## Limitations
+---
 
-- Auth is a prototype flow in the current UI; production should use managed auth or JWT with hashed passwords.
-- Market map and local data use labeled Demo Data until real OpenStreetMap, census and verified business datasets are integrated.
-- PDF export is represented by a downloadable text feasibility snapshot.
+## AI Fallback
+
+The AI advisor works with or without an OpenAI key:
+- **With key**: Calls `gpt-4o-mini` with assessment context
+- **Without key**: Rule-based responses using assessment data
+
+Financial calculations are **always deterministic** — the AI never performs or overrides financial math.
+
+---
 
 ## Disclaimer
 
-This assessment is for decision support and does not replace official financial or government-agency approval.
+This platform is for decision support only and does not replace official financial or government-agency approval. All financial figures are indicative estimates based on available regional data. No guarantee of loan approval, profit or business success is made or implied.
