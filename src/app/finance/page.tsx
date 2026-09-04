@@ -274,8 +274,8 @@ function FinanceContent() {
               <CardTitle>Where Should Your Money Go?</CardTitle>
               <CardDescription>Working capital below 15% of project cost needs review.</CardDescription>
             </CardHeader>
-            <CardContent className="h-52">
-              <ResponsiveContainer>
+            <CardContent className="h-52 w-full min-w-0">
+              <ResponsiveContainer width="100%" height={200} minWidth={0}>
                 <PieChart>
                   <Pie data={ALLOC} dataKey="value" nameKey="name" outerRadius={70}>
                     {ALLOC.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}
@@ -337,8 +337,8 @@ function FinanceContent() {
           <CardHeader>
             <CardTitle>Quarterly Repayment Schedule</CardTitle>
           </CardHeader>
-          <CardContent className="h-72">
-            <ResponsiveContainer>
+          <CardContent className="h-72 w-full min-w-0">
+            <ResponsiveContainer width="100%" height={280} minWidth={0}>
               <LineChart data={schedule}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="quarter" tick={{ fontSize: 11 }} />

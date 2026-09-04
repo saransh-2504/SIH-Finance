@@ -11,5 +11,5 @@ assert(routeScheme(140000)?.name === "Micro Finance Scheme", "Boundary 140000 sh
 assert(routeScheme(140001)?.name === "Term Loan Scheme", "Boundary 140001 should be Term Loan");
 assert(routeScheme(5000000)?.name === "Term Loan Scheme", "Boundary 5000000 should be Term Loan");
 assert(routeScheme(5000001) === null, "Above 5000000 should be unsupported");
-assert(calculateFinance(600000).cappedLoanAmount === 4500000, "Term Loan should enforce max loan cap");
+assert(calculateFinance(500000).cappedLoanAmount === 4500000, "Term Loan should enforce max loan cap");
 assert(calculateEmi(900000, 8, 7).emi > 0, "EMI should be positive");

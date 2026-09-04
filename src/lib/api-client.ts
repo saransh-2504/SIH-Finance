@@ -188,6 +188,9 @@ export interface SchemeInfo {
   moratorium_months: number;
   max_loan: number;
   reason: string;
+  min_project_cost?: number;
+  max_project_cost?: number;
+  source?: string;
 }
 
 export interface EmiResult {
@@ -220,6 +223,22 @@ export const financeApi = {
 
   schemes: () =>
     request<{ schemes: SchemeInfo[]; disclaimer: string }>("/api/finance/schemes"),
+
+  mandiRates: (params: { category?: string; district?: string; state?: string }) => {
+    const qs = new URLSearchParams();
+    if (params.category) qs.set("category", params.category);
+    if (params.district) qs.set("district", params.district);
+    if (params.state) qs.set("state", params.state);
+    return request<{
+      source: string;
+      mandi_name: string;
+      average_price: number;
+      variable_cost: number;
+      unit: string;
+      tier_multipliers: Record<string, number>;
+      pricing: { local: string; start: string; margin: string; benchmark_mandi: string };
+    }>(`/api/finance/mandi-rates?${qs.toString()}`);
+  },
 };
 
 // ── Opportunities ─────────────────────────────────────────────────────────────
@@ -283,8 +302,149 @@ export const reportsApi = {
     request<Record<string, unknown>>(`/api/reports/${assessmentId}`),
 };
 
+// ── Geo & OpenStreetMap ───────────────────────────────────────────────────────
+
+export interface GeoLocation {
+  source: string;
+  lat: number;
+  lon: number;
+  district: string;
+  state: string;
+  village: string;
+  display_name?: string;
+  coordinates?: string;
+}
+
+export interface CompetitorStats {
+  source: string;
+  direct: number;
+  complementary: number;
+  markets: number;
+  density: string;
+  radius_km: number;
+  coordinates: string;
+}
+
+export const geoApi = {
+  lookup: (params: { pincode?: string; village?: string; district?: string; state?: string }) => {
+    const qs = new URLSearchParams();
+    if (params.pincode) qs.set("pincode", params.pincode);
+    if (params.village) qs.set("village", params.village);
+    if (params.district) qs.set("district", params.district);
+    if (params.state) qs.set("state", params.state);
+    return request<GeoLocation>(`/api/geo/lookup?${qs.toString()}`);
+  },
+
+  reverse: (params: { lat: number; lon: number }) => {
+    const qs = new URLSearchParams({
+      lat: String(params.lat),
+      lon: String(params.lon),
+    });
+    return request<GeoLocation & { pincode?: string }>(`/api/geo/reverse?${qs.toString()}`);
+  },
+
+  competitors: (params: { lat: number; lon: number; category: string; radius?: number }) => {
+    const qs = new URLSearchParams({
+      lat: String(params.lat),
+      lon: String(params.lon),
+      category: params.category,
+      radius: String(params.radius ?? 5000),
+    });
+    return request<CompetitorStats>(`/api/geo/competitors?${qs.toString()}`);
+  },
+};
+
+// ── Machine Learning ─────────────────────────────────────────────────────────
+
+export interface MLRecommendation {
+  sector: string;
+  match_confidence_pct: number;
+  viability_score: number;
+  default_risk_pct: number;
+  suitability: string;
+}
+
+export interface XAIFeatureContribution {
+  feature: string;
+  value: string;
+  impact_pct: number;
+  direction: "positive" | "negative";
+  explanation: string;
+}
+
+export interface MonteCarloDistributionBin {
+  range: string;
+  count: number;
+  percentage: number;
+}
+
+export interface MonteCarloSimulationResult {
+  iterations: number;
+  median_monthly_surplus: number;
+  worst_case_p5_monthly: number;
+  best_case_p95_monthly: number;
+  value_at_risk_95: number;
+  insolvency_risk_pct: number;
+  stability_grade: string;
+  distribution: MonteCarloDistributionBin[];
+}
+
+export interface SeasonalMonthForecast {
+  month: string;
+  revenue: number;
+  expenses: number;
+  net_cashflow: number;
+  upper_band_90: number;
+  lower_band_90: number;
+  season_factor: string;
+}
+
+export interface MLPredictionResponse {
+  top_recommendations: MLRecommendation[];
+  overall_success_probability: number;
+  predicted_default_risk: number;
+  risk_category: string;
+  xai_feature_contributions: XAIFeatureContribution[];
+  monte_carlo_simulation: MonteCarloSimulationResult;
+  seasonal_12m_forecast: SeasonalMonthForecast[];
+  model_metadata: {
+    algorithm: string;
+    training_samples: number;
+    classification_accuracy: string;
+    success_r2_score: number;
+    risk_r2_score: number;
+    explainability_engine: string;
+    risk_simulation_engine: string;
+  };
+}
+
+export const mlApi = {
+  predict: (params: {
+    capital: number;
+    competitors?: number;
+    tier?: number;
+    experience_years?: number;
+    land_acres?: number;
+    market_distance_km?: number;
+    electricity_hours?: number;
+  }) =>
+    request<MLPredictionResponse>("/api/ml/predict", {
+      method: "POST",
+      body: JSON.stringify({
+        capital: params.capital,
+        competitors: params.competitors ?? 5,
+        tier: params.tier ?? 2,
+        experience_years: params.experience_years ?? 2.0,
+        land_acres: params.land_acres ?? 1.0,
+        market_distance_km: params.market_distance_km ?? 10.0,
+        electricity_hours: params.electricity_hours ?? 16.0,
+      }),
+    }),
+};
+
 // ── Health ────────────────────────────────────────────────────────────────────
 
 export const healthApi = {
   check: () => request<{ status: string; version: string }>("/health"),
 };
+
