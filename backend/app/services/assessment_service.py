@@ -395,18 +395,45 @@ DEFAULT_PROFILE: dict = {
 def normalize_category(category: str) -> str:
     """Return canonical category key."""
     mapping = {
+        # New agri-allied
+        "dairy farming": "Dairy",
+        "dairy": "Dairy",
+        "poultry / goat farming": "Poultry",
+        "poultry": "Poultry",
+        "goat farming": "Poultry",
+        "organic fertilizer": "Agriculture",
+        "seed & input retail": "Retail",
+        "seed input retail": "Retail",
+        # FoodTech
+        "grain / pulse milling": "Food Processing",
+        "grain pulse milling": "Food Processing",
+        "cold press oil extraction": "Food Processing",
+        "paneer & curd processing": "Food Processing",
+        "paneer curd processing": "Food Processing",
+        "spice packaging": "Food Processing",
+        "cold storage": "Food Processing",
         "food processing": "Food Processing",
+        # Rural enterprise
+        "micro retail": "Retail",
         "grocery/retail": "Retail",
         "grocery": "Retail",
+        "repair services": "Repair services",
         "repair": "Repair services",
+        "digital services": "Digital services",
         "digital": "Digital services",
         "handicraft": "Handicrafts",
+        "tailoring": "Tailoring",
+        "agriculture": "Agriculture",
     }
     lower = category.lower().strip()
+    # exact mapping
+    if lower in mapping:
+        return mapping[lower]
+    # partial match
     for k, v in mapping.items():
         if k in lower:
             return v
-    # direct match
+    # direct profile key match
     for key in BUSINESS_PROFILES:
         if key.lower() == lower:
             return key
@@ -426,6 +453,15 @@ async def build_full_assessment(
     """Build the complete assessment JSON stored in the database with live OSM intelligence."""
     canonical = normalize_category(business_category)
     profile = BUSINESS_PROFILES.get(canonical, DEFAULT_PROFILE)
+    # Use Dairy profile for all dairy-related categories
+    if "dairy" in business_category.lower():
+        profile = BUSINESS_PROFILES.get("Dairy", DEFAULT_PROFILE)
+    # Use Food Processing for all milling/processing categories
+    elif any(w in business_category.lower() for w in ["mill", "process", "oil", "paneer", "spice", "cold storage"]):
+        profile = BUSINESS_PROFILES.get("Food Processing", DEFAULT_PROFILE)
+    # Use Poultry for goat/livestock
+    elif any(w in business_category.lower() for w in ["poultry", "goat", "livestock"]):
+        profile = BUSINESS_PROFILES.get("Poultry", DEFAULT_PROFILE)
 
     # Fetch live geocoordinates and competitor density from OpenStreetMap
     geo = await geocode_location(

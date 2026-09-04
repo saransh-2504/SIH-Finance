@@ -49,14 +49,15 @@ export default function HomePage() {
         <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
           <section>
             <Badge className="mb-5 bg-[#f3dfbd] text-[#7c3f00] border-0 text-xs font-semibold">
-              Rural Business Intelligence Platform
+              🌾 Agri, FoodTech &amp; Rural Development Platform
             </Badge>
             <h2 className="text-5xl font-bold tracking-tight text-[#143821] leading-tight lg:text-6xl">
               Before You Borrow,<br />Know Your Business.
             </h2>
             <p className="mt-6 text-lg leading-8 text-[#526052] max-w-lg">
-              AI-powered hyper-local business intelligence that helps you discover the right opportunity,
-              understand your local market, test financial risks, and build a safer path to funding.
+              AI-powered hyper-local business &amp; agri-intelligence for Rural Development,
+              Agri-Allied Ventures &amp; FoodTech Micro-Enterprises. Understand your market,
+              model your finances, and find a safer path to funding.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
               <Link href="/register">
@@ -70,11 +71,12 @@ export default function HomePage() {
                 </Button>
               </Link>
             </div>
-            <div className="mt-8 grid grid-cols-3 gap-4">
+            <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
               {[
                 { icon: ShieldCheck, label: "Deterministic Finance", desc: "Rules-based, not AI guesses" },
                 { icon: MapPin, label: "Hyper-Local Analysis", desc: "Based on your actual location" },
                 { icon: TrendingUp, label: "Survival Simulator", desc: "Test what-if scenarios" },
+                { icon: Store, label: "🌾 Agri & FoodTech Ready", desc: "Dairy, milling, cold-chain & more" },
               ].map(({ icon: Icon, label, desc }) => (
                 <div key={label} className="text-center">
                   <div className="size-10 grid place-items-center rounded-xl bg-white border border-[#d8d1bd] shadow-sm mx-auto">

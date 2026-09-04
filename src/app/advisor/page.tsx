@@ -2,14 +2,15 @@
 
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Mic, Send } from "lucide-react";
-import { aiApi, type ChatResponse } from "@/lib/api-client";
+import { Loader2, Send } from "lucide-react";
+import { generateAdvice, buildAssessmentContext, type AdvisorResponse } from "@/services/aiAdvisorService";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useAssessments } from "@/context/assessment-context";
 
 const SUGGESTED_QUESTIONS = [
   "Why did I get this feasibility score?",
@@ -19,7 +20,9 @@ const SUGGESTED_QUESTIONS = [
   "Which business is safer for my capital?",
   "Explain my loan in simple Hindi.",
   "What should I do before borrowing?",
-  "Is my repayment coverage sufficient?",
+  "Is my repayment coverage (DSCR) sufficient?",
+  "What is the PMFME scheme and am I eligible?",
+  "How does monsoon risk affect my dairy business?",
 ];
 
 interface Message {
@@ -32,15 +35,17 @@ interface Message {
 function AdvisorContent() {
   const searchParams = useSearchParams();
   const assessmentId = searchParams.get("assessment") ?? undefined;
+  const { loadAssessment } = useAssessments();
+
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "advisor",
-      text: "Hello! I'm your business advisor. Ask me anything about your assessment, financial model, market analysis, or loan options. I'll answer using your actual data and deterministic financial rules — not guesses.",
+      text: "Hello! I'm your GramUdyam business advisor. Ask me anything about your assessment, financial model, agri-scheme eligibility, DSCR, or loan options. I'll answer using your actual data and deterministic financial rules — not guesses.",
       confidence: "high",
     },
   ]);
   const [question, setQuestion] = useState("");
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState<"en" | "hi" | "kn">("en");
   const [loading, setLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -50,15 +55,38 @@ function AdvisorContent() {
 
   async function sendQuestion(q: string) {
     if (!q.trim()) return;
-    const userMsg: Message = { role: "user", text: q };
-    setMessages((m) => [...m, userMsg]);
+    setMessages((m) => [...m, { role: "user", text: q }]);
     setQuestion("");
     setLoading(true);
 
     try {
-      const res: ChatResponse = await aiApi.chat({
+      // Build context from saved assessment if ID is available
+      let context = {};
+      if (assessmentId) {
+        try {
+          const a = await loadAssessment(assessmentId);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          context = buildAssessmentContext(a as unknown as Record<string, any>);
+        } catch {
+          // Proceed without context
+        }
+      }
+
+      const res: AdvisorResponse = await generateAdvice({
         question: q,
-        assessment_id: assessmentId,
+        context: {
+          ...(context as object),
+          assessment_id: assessmentId,
+          language,
+          // minimum required fields
+          business_name: "",
+          business_category: "",
+          location: { village: "", district: "", state: "" },
+          capital: 0,
+          project_cost: 0,
+          loan_amount: 0,
+          ...context,
+        },
         language,
       });
       setMessages((m) => [
@@ -95,7 +123,7 @@ function AdvisorContent() {
         </div>
         <select
           value={language}
-          onChange={(e) => setLanguage(e.target.value)}
+          onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "kn")}
           className="h-9 rounded-md border border-input bg-white px-3 text-sm"
           aria-label="Response language"
         >
