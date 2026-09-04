@@ -16,22 +16,31 @@ import { toast } from "sonner";
 const STEPS = ["Location", "Capital", "Business", "Goals"];
 
 const BUSINESS_CATEGORIES = [
-  { key: "Dairy", emoji: "🐄" },
-  { key: "Poultry", emoji: "🐔" },
-  { key: "Agriculture", emoji: "🌾" },
-  { key: "Food Processing", emoji: "🥘" },
-  { key: "Retail", emoji: "🛒" },
-  { key: "Tailoring", emoji: "🧵" },
-  { key: "Handicrafts", emoji: "🏺" },
-  { key: "Repair services", emoji: "🔧" },
-  { key: "Digital services", emoji: "💻" },
-  { key: "Other", emoji: "📦" },
+  // 🌾 Agri-Allied
+  { key: "Dairy Farming", emoji: "🐄", group: "Agri-Allied" },
+  { key: "Poultry / Goat Farming", emoji: "🐔", group: "Agri-Allied" },
+  { key: "Organic Fertilizer", emoji: "🌱", group: "Agri-Allied" },
+  { key: "Seed & Input Retail", emoji: "🌾", group: "Agri-Allied" },
+  // 🥘 FoodTech & Processing
+  { key: "Grain / Pulse Milling", emoji: "⚙️", group: "FoodTech" },
+  { key: "Cold Press Oil Extraction", emoji: "🫒", group: "FoodTech" },
+  { key: "Paneer & Curd Processing", emoji: "🧀", group: "FoodTech" },
+  { key: "Spice Packaging", emoji: "🌶️", group: "FoodTech" },
+  { key: "Cold Storage", emoji: "🧊", group: "FoodTech" },
+  { key: "Food Processing", emoji: "🥘", group: "FoodTech" },
+  // 🧵 Rural Enterprise
+  { key: "Tailoring", emoji: "🧵", group: "Rural" },
+  { key: "Micro Retail", emoji: "🛒", group: "Rural" },
+  { key: "Repair Services", emoji: "🔧", group: "Rural" },
+  { key: "Handicrafts", emoji: "🏺", group: "Rural" },
+  { key: "Digital Services", emoji: "💻", group: "Rural" },
+  { key: "Other", emoji: "📦", group: "Rural" },
 ];
 
 const DEMO_SCENARIOS = [
-  { label: "Hoskote Dairy", village: "Hoskote", block: "Hoskote", district: "Bengaluru Rural", state: "Karnataka", pin_code: "562114", capital: 100000, business: "Dairy" },
+  { label: "Hoskote Dairy", village: "Hoskote", block: "Hoskote", district: "Bengaluru Rural", state: "Karnataka", pin_code: "562114", capital: 100000, business: "Dairy Farming" },
   { label: "Rural Tailoring", village: "Nandagudi", block: "Hoskote", district: "Bengaluru Rural", state: "Karnataka", pin_code: "562122", capital: 50000, business: "Tailoring" },
-  { label: "Food Processing", village: "Sulibele", block: "Hoskote", district: "Bengaluru Rural", state: "Karnataka", pin_code: "562129", capital: 20000, business: "Food Processing" },
+  { label: "Pulse Milling", village: "Sulibele", block: "Hoskote", district: "Bengaluru Rural", state: "Karnataka", pin_code: "562129", capital: 20000, business: "Grain / Pulse Milling" },
 ];
 
 const ANALYSIS_STAGES = [
@@ -341,23 +350,27 @@ export default function NewAssessmentPage() {
                 <CardDescription>Select a category or enter a custom business idea.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {BUSINESS_CATEGORIES.map(({ key, emoji }) => (
-                    <button
-                      key={key}
-                      onClick={() => update("business", key)}
-                      className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-all hover:shadow-sm ${form.business === key ? "border-[#166534] bg-[#f0fdf4] shadow-sm" : "border-[#e5e7eb] bg-white"}`}
-                    >
-                      <span className="text-2xl">{emoji}</span>
-                      <div>
-                        <Store className={`size-3 mb-0.5 ${form.business === key ? "text-[#166534]" : "text-[#9ca3af]"}`} />
-                        <p className={`text-sm font-medium ${form.business === key ? "text-[#166534]" : "text-[#1f2937]"}`}>
-                          {key}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                {(["Agri-Allied", "FoodTech", "Rural"] as const).map((group) => (
+                  <div key={group} className="mb-5">
+                    <p className="text-xs font-semibold text-[#d97706] uppercase tracking-wider mb-2">
+                      {group === "Agri-Allied" ? "🌾 Agri-Allied" : group === "FoodTech" ? "🥘 FoodTech & Processing" : "🧵 Rural Enterprise"}
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {BUSINESS_CATEGORIES.filter((c) => c.group === group).map(({ key, emoji }) => (
+                        <button
+                          key={key}
+                          onClick={() => update("business", key)}
+                          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all hover:shadow-sm ${form.business === key ? "border-[#166534] bg-[#f0fdf4] shadow-sm" : "border-[#e5e7eb] bg-white"}`}
+                        >
+                          <span className="text-xl">{emoji}</span>
+                          <p className={`text-sm font-medium ${form.business === key ? "text-[#166534]" : "text-[#1f2937]"}`}>
+                            {key}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
                 <div className="mt-4 space-y-1">
                   <label className="text-sm font-medium">Or enter a custom business idea</label>
                   <Input
