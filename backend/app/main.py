@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .database import Base, engine
-from .api import auth, assessments, finance, ai, reports, opportunities
+from .api import auth, assessments, finance, ai, reports, opportunities, geo, ml
 
 settings = get_settings()
 
@@ -44,6 +44,8 @@ app.include_router(finance.router, prefix="/api")
 app.include_router(ai.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 app.include_router(opportunities.router, prefix="/api")
+app.include_router(geo.router, prefix="/api")
+app.include_router(ml.router, prefix="/api")
 
 
 @app.get("/health")

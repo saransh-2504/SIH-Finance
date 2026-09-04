@@ -7,6 +7,8 @@ from .financial_service import (
     calculate_business_model,
     quarterly_schedule,
 )
+from .geo_service import geocode_location, fetch_osm_competitor_stats
+from .mandi_service import get_district_mandi_pricing
 
 # ── Operating assumptions per business category ──────────────────────────────
 # These are realistic regional estimates for rural Karnataka.
@@ -411,16 +413,52 @@ def normalize_category(category: str) -> str:
     return category  # return as-is, will use default profile
 
 
-def build_full_assessment(
+async def build_full_assessment(
     business_category: str,
     available_capital: float,
     village: str,
     state: str = "Karnataka",
     district: str = "",
+    pin_code: str = "",
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
 ) -> dict:
-    """Build the complete assessment JSON stored in the database."""
+    """Build the complete assessment JSON stored in the database with live OSM intelligence."""
     canonical = normalize_category(business_category)
     profile = BUSINESS_PROFILES.get(canonical, DEFAULT_PROFILE)
+
+    # Fetch live geocoordinates and competitor density from OpenStreetMap
+    geo = await geocode_location(
+        pin_code=pin_code,
+        village=village,
+        district=district,
+        state=state,
+    )
+    lat = latitude or geo.get("lat", 13.0711)
+    lon = longitude or geo.get("lon", 77.7981)
+
+    osm_competitors = await fetch_osm_competitor_stats(
+        lat=lat,
+        lon=lon,
+        category=canonical,
+        radius_meters=5000,
+    )
+
+    # Dynamic mandi pricing & regional expense multipliers
+    mandi_data = get_district_mandi_pricing(
+        business_category=canonical,
+        district=district or geo.get("district"),
+        state=state or geo.get("state"),
+    )
+    unit_price = mandi_data["average_price"]
+    var_cost = mandi_data["variable_cost"]
+    tier_mult = mandi_data["tier_multipliers"]
+
+    rent = round(profile["rent"] * tier_mult["rent"])
+    wages = round(profile["wages"] * tier_mult["wages"])
+    utilities = round(profile["utilities"] * tier_mult["utilities"])
+    transport = round(profile["transport"] * tier_mult.get("rent", 1.0))
+    monthly_customers = round(profile["customers"] * tier_mult.get("customers", 1.0))
 
     finance = calculate_finance(available_capital)
     scheme = finance.get("scheme")
@@ -431,13 +469,13 @@ def build_full_assessment(
         scheme["tenure_years"] if scheme else 1,
     )
     model = calculate_business_model(
-        monthly_customers=profile["customers"],
-        average_price=profile["price"],
-        variable_cost_per_sale=profile["variable_cost"],
-        rent=profile["rent"],
-        wages=profile["wages"],
-        utilities=profile["utilities"],
-        transport=profile["transport"],
+        monthly_customers=monthly_customers,
+        average_price=unit_price,
+        variable_cost_per_sale=var_cost,
+        rent=rent,
+        wages=wages,
+        utilities=utilities,
+        transport=transport,
         marketing=profile["marketing"],
         working_capital=finance["project_cost"] * 0.22,
         loan_amount=loan,
@@ -450,6 +488,10 @@ def build_full_assessment(
         scheme["tenure_years"] if scheme else 1,
     )
 
+    # Dynamic competition score adjustment based on real OSM count
+    direct_count = osm_competitors.get("direct", 5)
+    live_competition_score = max(35, min(90, 85 - (direct_count * 4)))
+
     # Financial resilience score from model
     fin_resilience = 84 if model["status"] == "Healthy" else 68 if model["status"] == "Watch" else 42
     profitability = min(92, round(model["repayment_coverage"] * 38))
@@ -458,8 +500,8 @@ def build_full_assessment(
     metrics = [
         {"label": "Market Demand", "value": profile["demand"],
          "why": f"Estimated from available household, channel and purchase-frequency indicators for {district or state}. Indicative — validate locally."},
-        {"label": "Competition", "value": profile["competition"],
-         "why": "Similar businesses are visible in available regional data. Concentration may be higher near main market points."},
+        {"label": "Competition", "value": live_competition_score,
+         "why": f"Derived from OpenStreetMap: {direct_count} direct/retail points detected within {osm_competitors.get('radius_km', 5)}km radius."},
         {"label": "Capital Fit", "value": profile["capital"],
          "why": "Your stated margin creates project capacity under the deterministic 10% contribution structure."},
         {"label": "Profitability Potential", "value": profitability,
@@ -478,19 +520,37 @@ def build_full_assessment(
          "why": "Derived from deterministic scheme boundaries, maximum loan caps and project cost fit."},
         {"label": "Risk Score", "value": profile["risk"],
          "why": "Risk reflects operating cost volatility, seasonality and repayment buffer from simulated cash flow."},
-        {"label": "Opportunity", "value": profile["opportunity"],
-         "why": "Rewards underserved channels and recurring customer behaviour where available indicators support it."},
+        {"label": "Opportunity Potential", "value": profile["opportunity"],
+         "why": "Rewarding underserved channels and recurring customer segments."},
     ]
 
-    overall_score = profile["score"]
-    verdict = "STRONG FIT" if overall_score >= 80 else "PROMISING" if overall_score >= 70 else "NEEDS CAUTION"
+    # Weighted overall score (deterministic math)
+    overall_score = round(
+        profile["demand"] * 0.18
+        + live_competition_score * 0.15
+        + profile["capital"] * 0.14
+        + profitability * 0.13
+        + profile["supplier_score"] * 0.10
+        + profile["distribution_score"] * 0.08
+        + fin_resilience * 0.08
+        + funding_compat * 0.06
+        + profile["opportunity"] * 0.05
+        + profile["operational_complexity"] * 0.03
+    )
+    overall_score = max(20, min(95, overall_score))
+
+    verdict = (
+        "STRONG FIT" if overall_score >= 80
+        else "PROMISING" if overall_score >= 70
+        else "NEEDS CAUTION"
+    )
 
     score_drivers = [
-        f"+{round(profile['demand']*0.18)} Strong local demand indicators",
-        f"+{round(profile['competition']*0.15)} Competition pattern",
+        f"+{round(profile['demand']*0.18)} Local demand indicators",
+        f"+{round(live_competition_score*0.15)} Live OSM competition pattern ({osm_competitors.get('density', 'Moderate')} density)",
         f"+{round(profile['capital']*0.14)} Capital compatibility",
-        f"+{round(profile['supplier_score']*0.12)} Supplier accessibility",
-        f"+{round(profile['opportunity']*0.10)} Pricing and repeat-purchase potential",
+        f"+{round(profile['supplier_score']*0.10)} Supplier accessibility",
+        f"+{round(profile['opportunity']*0.05)} Pricing and repeat-purchase potential",
         f"-{round((100 - profile['seasonality'])*0.07)} Seasonal or input-cost volatility",
         f"-{round((100 - fin_resilience)*0.05)} Working-capital pressure",
     ]
@@ -498,27 +558,24 @@ def build_full_assessment(
     return {
         "score": overall_score,
         "verdict": verdict,
-        "confidence": "Medium",
+        "confidence": "High" if "Live" in osm_competitors.get("source", "") else "Medium",
         "data_note": (
-            "Business indicators are regional estimates with medium confidence. "
-            "Local market and competitor data should be validated before investment."
+            f"Coordinates: {geo.get('coordinates', '13.0711° N, 77.7981° E')} | "
+            f"Competitor data: {osm_competitors.get('source', 'OpenStreetMap')}."
         ),
         "metrics": metrics,
         "score_drivers": score_drivers,
+        "geo": geo,
         "market_reach": {
-            "radius": "10 km",
+            "radius": f"{osm_competitors.get('radius_km', 5)} km",
             "households": "4,200",
             "population": "18,900",
+            "coordinates": geo.get("coordinates", "13.0711° N, 77.7981° E"),
             "primary_customers": profile.get("opportunity_text", "Local households"),
             "channels": profile["channels"],
-            "data_source": "Estimated from available census and demographic data.",
+            "data_source": f"{osm_competitors.get('source', 'OpenStreetMap')} & Census indicators",
         },
-        "competitor_stats": {
-            "direct": 7 if canonical == "Dairy" else 5,
-            "complementary": 18,
-            "markets": 4,
-            "density": "Moderate" if profile["competition"] > 55 else "Low",
-        },
+        "competitor_stats": osm_competitors,
         "opportunity": {
             "headline": profile["opportunity_text"],
             "confidence": "Medium",
@@ -536,20 +593,22 @@ def build_full_assessment(
             "threats": profile["threats"],
         },
         "risks": profile["risks"],
-        "pricing": profile["pricing"],
+        "pricing": mandi_data["pricing"],
+        "mandi_benchmark": mandi_data,
         "finance": finance,
         "emi": emi_data,
         "schedule": schedule[:8],
         "business_model": model,
         "assumptions": {
-            "customers_per_month": profile["customers"],
-            "average_price": profile["price"],
-            "variable_cost": profile["variable_cost"],
-            "rent": profile["rent"],
-            "wages": profile["wages"],
-            "utilities": profile["utilities"],
-            "transport": profile["transport"],
+            "customers_per_month": monthly_customers,
+            "average_price": unit_price,
+            "variable_cost": var_cost,
+            "rent": rent,
+            "wages": wages,
+            "utilities": utilities,
+            "transport": transport,
             "marketing": profile["marketing"],
+            "mandi_source": mandi_data["source"],
         },
         "readiness": profile["readiness"],
         "working_capital_allocation": [

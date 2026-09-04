@@ -13,18 +13,21 @@ router = APIRouter(prefix="/assessments", tags=["assessments"])
 
 
 @router.post("", response_model=AssessmentOut, status_code=201)
-def create_assessment(
+async def create_assessment(
     payload: AssessmentCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     finance = calculate_finance(payload.available_capital)
-    analysis = build_full_assessment(
+    analysis = await build_full_assessment(
         business_category=payload.business_category,
         available_capital=payload.available_capital,
         village=payload.village,
         state=payload.state or "India",
         district=payload.district or "",
+        pin_code=payload.pin_code or "",
+        latitude=payload.latitude,
+        longitude=payload.longitude,
     )
 
     assessment = Assessment(
