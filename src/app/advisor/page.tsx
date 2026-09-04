@@ -2,15 +2,15 @@
 
 import { useState, useRef, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { Loader2, Send } from "lucide-react";
-import { generateAdvice, buildAssessmentContext, type AdvisorResponse } from "@/services/aiAdvisorService";
+import { Loader2, Mic, MicOff, Send, Volume2, VolumeX } from "lucide-react";
+import { aiApi, type ChatResponse } from "@/lib/api-client";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useAssessments } from "@/context/assessment-context";
+import { toast } from "sonner";
 
 const SUGGESTED_QUESTIONS = [
   "Why did I get this feasibility score?",
@@ -20,9 +20,7 @@ const SUGGESTED_QUESTIONS = [
   "Which business is safer for my capital?",
   "Explain my loan in simple Hindi.",
   "What should I do before borrowing?",
-  "Is my repayment coverage (DSCR) sufficient?",
-  "What is the PMFME scheme and am I eligible?",
-  "How does monsoon risk affect my dairy business?",
+  "Is my repayment coverage sufficient?",
 ];
 
 interface Message {
@@ -35,58 +33,88 @@ interface Message {
 function AdvisorContent() {
   const searchParams = useSearchParams();
   const assessmentId = searchParams.get("assessment") ?? undefined;
-  const { loadAssessment } = useAssessments();
-
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "advisor",
-      text: "Hello! I'm your GramUdyam business advisor. Ask me anything about your assessment, financial model, agri-scheme eligibility, DSCR, or loan options. I'll answer using your actual data and deterministic financial rules — not guesses.",
+      text: "Hello! I'm your business advisor. Ask me anything about your assessment, financial model, market analysis, or loan options. I'll answer using your actual data and deterministic financial rules — not guesses.",
       confidence: "high",
     },
   ]);
   const [question, setQuestion] = useState("");
-  const [language, setLanguage] = useState<"en" | "hi" | "kn">("en");
+  const [language, setLanguage] = useState("en");
   const [loading, setLoading] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [speakingIndex, setSpeakingIndex] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  function startListening() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      toast.error("Speech recognition is not supported in this browser. Use Chrome, Edge, or Safari.");
+      return;
+    }
+    const recognition = new SpeechRec();
+    recognition.lang = language === "hi" ? "hi-IN" : language === "kn" ? "kn-IN" : "en-IN";
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      toast.info(`Listening in ${language === "hi" ? "Hindi" : language === "kn" ? "Kannada" : "English"}… speak now`);
+    };
+    recognition.onend = () => setIsListening(false);
+    recognition.onerror = () => {
+      setIsListening(false);
+      toast.error("Could not capture voice. Please check microphone permissions.");
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (e: any) => {
+      const transcript = e.results?.[0]?.[0]?.transcript;
+      if (transcript) {
+        setQuestion(transcript);
+        toast.success(`Voice captured: "${transcript}"`);
+      }
+    };
+    recognition.start();
+  }
+
+  function toggleSpeech(text: string, idx: number) {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      toast.error("Audio playback not supported in this browser.");
+      return;
+    }
+    if (speakingIndex === idx) {
+      window.speechSynthesis.cancel();
+      setSpeakingIndex(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const cleanText = text.replace(/[*_#]/g, "");
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = language === "hi" ? "hi-IN" : language === "kn" ? "kn-IN" : "en-IN";
+    utterance.rate = 0.95;
+    utterance.onend = () => setSpeakingIndex(null);
+    utterance.onerror = () => setSpeakingIndex(null);
+    setSpeakingIndex(idx);
+    window.speechSynthesis.speak(utterance);
+  }
+
   async function sendQuestion(q: string) {
     if (!q.trim()) return;
-    setMessages((m) => [...m, { role: "user", text: q }]);
+    const userMsg: Message = { role: "user", text: q };
+    setMessages((m) => [...m, userMsg]);
     setQuestion("");
     setLoading(true);
 
     try {
-      // Build context from saved assessment if ID is available
-      let context = {};
-      if (assessmentId) {
-        try {
-          const a = await loadAssessment(assessmentId);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          context = buildAssessmentContext(a as unknown as Record<string, any>);
-        } catch {
-          // Proceed without context
-        }
-      }
-
-      const res: AdvisorResponse = await generateAdvice({
+      const res: ChatResponse = await aiApi.chat({
         question: q,
-        context: {
-          ...(context as object),
-          assessment_id: assessmentId,
-          language,
-          // minimum required fields
-          business_name: "",
-          business_category: "",
-          location: { village: "", district: "", state: "" },
-          capital: 0,
-          project_cost: 0,
-          loan_amount: 0,
-          ...context,
-        },
+        assessment_id: assessmentId,
         language,
       });
       setMessages((m) => [
@@ -121,16 +149,18 @@ function AdvisorContent() {
             Grounded answers using your assessment data and deterministic financial rules.
           </p>
         </div>
-        <select
-          value={language}
-          onChange={(e) => setLanguage(e.target.value as "en" | "hi" | "kn")}
-          className="h-9 rounded-md border border-input bg-white px-3 text-sm"
-          aria-label="Response language"
-        >
-          <option value="en">English</option>
-          <option value="hi">हिंदी</option>
-          <option value="kn">ಕನ್ನಡ</option>
-        </select>
+        <div className="flex items-center gap-2">
+          <select
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+            className="h-9 rounded-md border border-input bg-white px-3 text-sm font-medium"
+            aria-label="Response language"
+          >
+            <option value="en">English</option>
+            <option value="hi">हिंदी (Hindi Voice)</option>
+            <option value="kn">ಕನ್ನಡ (Kannada Voice)</option>
+          </select>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
@@ -170,7 +200,23 @@ function AdvisorContent() {
                     <div className={`flex-1 rounded-2xl p-4 text-sm leading-relaxed ${
                       m.role === "advisor" ? "bg-[#f8f7f2] text-[#1f2937]" : "bg-[#0f2d1c] text-white"
                     }`}>
-                      {m.text}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 whitespace-pre-wrap">{m.text}</div>
+                        {m.role === "advisor" && (
+                          <button
+                            onClick={() => toggleSpeech(m.text, i)}
+                            className="text-[#66715f] hover:text-[#166534] shrink-0 p-1 rounded-lg hover:bg-white transition-colors"
+                            title={speakingIndex === i ? "Stop Audio" : "Listen to response"}
+                            aria-label="Toggle Audio"
+                          >
+                            {speakingIndex === i ? (
+                              <VolumeX className="size-4 text-[#dc2626] animate-pulse" />
+                            ) : (
+                              <Volume2 className="size-4" />
+                            )}
+                          </button>
+                        )}
+                      </div>
                       {m.role === "advisor" && m.confidence && (
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Badge
@@ -204,13 +250,13 @@ function AdvisorContent() {
             </CardContent>
           </Card>
 
-          {/* Input */}
+          {/* Input & Voice Controls */}
           <div className="flex gap-2">
             <Textarea
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Ask about your assessment, financial model, risks, schemes…"
-              className="resize-none"
+              placeholder={isListening ? "🎙️ Listening... speak in Hindi or English now..." : "Ask about your assessment, financial model, risks, schemes or click Mic to speak…"}
+              className={`resize-none transition-colors ${isListening ? "border-[#16a34a] bg-[#f0fdf4]" : ""}`}
               rows={2}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -220,6 +266,16 @@ function AdvisorContent() {
               }}
             />
             <Button
+              type="button"
+              variant={isListening ? "destructive" : "outline"}
+              className={`self-end transition-all ${isListening ? "animate-pulse" : "border-[#d8d1bd] hover:bg-[#f0fdf4] hover:text-[#166534]"}`}
+              onClick={startListening}
+              title={isListening ? "Listening..." : "Click to speak"}
+              aria-label="Microphone Voice Input"
+            >
+              {isListening ? <MicOff className="size-4" /> : <Mic className="size-4 text-[#166534]" />}
+            </Button>
+            <Button
               className="bg-[#166534] hover:bg-[#14532d] self-end"
               onClick={() => sendQuestion(question)}
               disabled={loading || !question.trim()}
@@ -228,6 +284,9 @@ function AdvisorContent() {
               <Send className="size-4" />
             </Button>
           </div>
+          <p className="text-xs text-[#9ca3af]">
+            💡 <strong>Voice Enabled:</strong> Click the microphone icon to speak in Hindi or English. Click the speaker icon to listen to AI advice.
+          </p>
           <p className="text-xs text-[#9ca3af]">
             AI responses are for informational guidance only. Financial calculations use deterministic rules.
             This is not financial, legal, or government advice.

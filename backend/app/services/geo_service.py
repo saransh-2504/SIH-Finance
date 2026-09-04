@@ -144,6 +144,66 @@ async def geocode_location(
     }
 
 
+async def reverse_geocode(lat: float, lon: float) -> dict:
+    """Reverse geocode GPS coordinates to village, district, state, and pincode."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            headers = {"User-Agent": "GramUdyamAdvisor-SIH/1.0 (contact@sih-rural.org)"}
+            params = {
+                "lat": lat,
+                "lon": lon,
+                "format": "json",
+                "addressdetails": 1,
+            }
+            res = await client.get("https://nominatim.openstreetmap.org/reverse", params=params, headers=headers)
+            if res.status_code == 200:
+                data = res.json()
+                if data:
+                    address = data.get("address", {})
+                    village = (
+                        address.get("village")
+                        or address.get("suburb")
+                        or address.get("town")
+                        or address.get("city_district")
+                        or address.get("city")
+                        or "Local Area"
+                    )
+                    district = (
+                        address.get("state_district")
+                        or address.get("county")
+                        or address.get("district")
+                        or address.get("city")
+                        or "District"
+                    )
+                    state = address.get("state", "India")
+                    postcode = address.get("postcode", "")
+                    
+                    return {
+                        "source": "Live GPS Geolocation (OSM)",
+                        "lat": lat,
+                        "lon": lon,
+                        "village": village,
+                        "district": district,
+                        "state": state,
+                        "pincode": postcode,
+                        "display_name": data.get("display_name", ""),
+                        "coordinates": f"{round(lat, 4)}° N, {round(lon, 4)}° E",
+                    }
+    except Exception as exc:
+        logger.warning("Reverse geocoding error: %s", exc)
+
+    return {
+        "source": "GPS Coordinates",
+        "lat": lat,
+        "lon": lon,
+        "village": "Local Area",
+        "district": "Local District",
+        "state": "India",
+        "pincode": "",
+        "coordinates": f"{round(lat, 4)}° N, {round(lon, 4)}° E",
+    }
+
+
 async def fetch_osm_competitor_stats(
     lat: float,
     lon: float,

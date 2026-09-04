@@ -92,8 +92,8 @@ export default function ComparePage() {
               <CardTitle>Comparison Chart</CardTitle>
               <CardDescription>Feasibility, Capital Fit and Risk scores side-by-side.</CardDescription>
             </CardHeader>
-            <CardContent className="h-72">
-              <ResponsiveContainer>
+            <CardContent className="h-72 w-full min-w-0">
+              <ResponsiveContainer width="100%" height={280} minWidth={0}>
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="name" tick={{ fontSize: 12 }} />

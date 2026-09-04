@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ChevronUp,
   Download,
+  FileText,
   Info,
   MapPin,
   Mic,
@@ -32,6 +33,7 @@ import {
 import { useAssessments } from "@/context/assessment-context";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AppShell } from "@/components/app-shell";
+import { OsmMapView } from "@/components/osm-map-view";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -185,9 +187,14 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
                 <div className="flex items-center gap-3 flex-wrap">
                   <h1 className="text-2xl font-bold">{assessment.business_name}</h1>
                   <VerdictChip verdict={analysis.verdict} />
-                  <Badge variant="outline" className="text-[10px]">
-                    Demonstration Data
+                  <Badge variant="outline" className="text-[10px] text-[#166534] border-[#166534]/30 bg-[#f0fdf4]">
+                    {competitorStats.source?.includes("OpenStreetMap") ? "🟢 OpenStreetMap Live" : "Verified Regional Data"}
                   </Badge>
+                  {analysis.market_reach?.coordinates && (
+                    <span className="text-[11px] text-[#66715f] font-mono">
+                      📍 {analysis.market_reach.coordinates}
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm text-[#66715f] mt-1 flex items-center gap-1">
                   <MapPin className="size-3" />
@@ -195,9 +202,11 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
                 </p>
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button variant="outline" size="sm" onClick={downloadReport}>
-                  <Download className="size-4 mr-2" /> Download Report
-                </Button>
+                <Link href={`/assessment/${id}/report`}>
+                  <Button variant="outline" size="sm" className="border-[#166534] text-[#166534] hover:bg-[#f0fdf4]">
+                    <FileText className="size-4 mr-2" /> Bank DPR Proposal
+                  </Button>
+                </Link>
                 <Link href={`/advisor?assessment=${id}`}>
                   <Button size="sm" className="bg-[#166534] hover:bg-[#14532d]">
                     <Mic className="size-4 mr-2" /> Ask Advisor
@@ -313,6 +322,18 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
               </div>
             </div>
 
+            {/* OpenStreetMap Live Catchment Visual Map */}
+            <OsmMapView
+              lat={assessment.latitude || analysis.geo?.lat || 13.0711}
+              lon={assessment.longitude || analysis.geo?.lon || 77.7981}
+              village={assessment.village}
+              district={assessment.district}
+              state={assessment.state}
+              radiusKm={competitorStats.radius_km ?? 5}
+              directCompetitors={competitorStats.direct ?? 5}
+              density={competitorStats.density ?? "Moderate"}
+            />
+
             {/* Market + Competition + Opportunity */}
             <div className="grid gap-4 lg:grid-cols-3">
               <Card className="border-[#d8d1bd]">
@@ -330,14 +351,21 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
 
               <Card className="border-[#d8d1bd]">
                 <CardHeader className="pb-3">
-                  <CardTitle className="text-base">Competition Snapshot</CardTitle>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Competition Snapshot</CardTitle>
+                    {competitorStats.source && (
+                      <span className="text-[10px] font-medium text-[#166534] bg-[#f0fdf4] border border-[#166534]/20 px-2 py-0.5 rounded-full">
+                        {competitorStats.source.includes("OpenStreetMap") ? "🟢 Live OSM" : "OSM Baseline"}
+                      </span>
+                    )}
+                  </div>
                   <CardDescription className="text-xs">
-                    Local data is limited — validate on the ground.
+                    {competitorStats.source ?? "OpenStreetMap Overpass Intelligence"}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <InfoTile label="Direct competitors" value={competitorStats.direct ?? "—"} />
-                  <InfoTile label="Complementary" value={competitorStats.complementary ?? "—"} />
+                  <InfoTile label="Direct competitors (5km)" value={competitorStats.direct ?? "—"} />
+                  <InfoTile label="Complementary units" value={competitorStats.complementary ?? "—"} />
                   <InfoTile label="Market points" value={competitorStats.markets ?? "—"} />
                   <Badge
                     className={
@@ -348,7 +376,7 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
                         : "bg-[#fee2e2] text-[#991b1b]"
                     }
                   >
-                    {competitorStats.density} competition
+                    {competitorStats.density} competition density
                   </Badge>
                 </CardContent>
               </Card>
@@ -436,8 +464,8 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
                 <CardTitle>Score Breakdown</CardTitle>
                 <CardDescription>All scores are indicative — based on regional estimates.</CardDescription>
               </CardHeader>
-              <CardContent className="h-72">
-                <ResponsiveContainer>
+              <CardContent className="h-72 w-full min-w-0">
+                <ResponsiveContainer width="100%" height={280} minWidth={0}>
                   <BarChart data={metrics.map((m) => ({ name: m.label.split(" ")[0], value: m.value }))}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f0fdf4" />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
@@ -489,8 +517,8 @@ export default function AssessmentDetailPage({ params }: { params: Promise<{ id:
                     <CardTitle>Where Should Your Money Go?</CardTitle>
                     <CardDescription>Indicative allocation — working capital below 15% should be reviewed.</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-64">
-                    <ResponsiveContainer>
+                  <CardContent className="h-64 w-full min-w-0">
+                    <ResponsiveContainer width="100%" height={250} minWidth={0}>
                       <PieChart>
                         <Pie data={allocation} dataKey="value" nameKey="name" outerRadius={80} label={({ name, value }) => `${name}: ${value}%`}>
                           {allocation.map((_, i) => (

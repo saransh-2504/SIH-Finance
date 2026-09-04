@@ -1,7 +1,7 @@
 """Geocoding and OpenStreetMap API endpoints."""
 from fastapi import APIRouter, Query
 from typing import Optional
-from ..services.geo_service import geocode_location, fetch_osm_competitor_stats
+from ..services.geo_service import geocode_location, reverse_geocode, fetch_osm_competitor_stats
 
 router = APIRouter(prefix="/geo", tags=["geo"])
 
@@ -20,6 +20,15 @@ async def lookup_location(
         district=district,
         state=state,
     )
+
+
+@router.get("/reverse")
+async def reverse_lookup(
+    lat: float = Query(..., description="Latitude"),
+    lon: float = Query(..., description="Longitude"),
+):
+    """Reverse lookup address details from GPS coordinates."""
+    return await reverse_geocode(lat=lat, lon=lon)
 
 
 @router.get("/competitors")

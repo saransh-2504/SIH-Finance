@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { MlBusinessPredictor } from "@/components/ml-business-predictor";
 import { toast } from "sonner";
 
 function ScoreBadge({ score }: { score: number }) {
@@ -88,6 +89,9 @@ export default function OpportunitiesPage() {
               Discover the best businesses for your location and capital. All scores are regional estimates.
             </p>
           </div>
+
+          {/* ML Viability & Risk Engine Widget */}
+          <MlBusinessPredictor initialCapital={capital} />
 
           {/* Filters */}
           <Card className="border-[#d8d1bd]">

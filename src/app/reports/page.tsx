@@ -142,15 +142,13 @@ export default function ReportsPage() {
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           <Link href={`/assessment/${a.id}`}>
-                            <Button size="sm" variant="outline">View</Button>
+                            <Button size="sm" variant="outline">Assessment</Button>
                           </Link>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload(a.id, a.business_name)}
-                          >
-                            <Download className="size-4 mr-1" /> Download
-                          </Button>
+                          <Link href={`/assessment/${a.id}/report`}>
+                            <Button size="sm" variant="outline" className="border-[#166534] text-[#166534] hover:bg-[#f0fdf4]">
+                              <FileText className="size-4 mr-1" /> Bank DPR
+                            </Button>
+                          </Link>
                           <Button
                             size="sm"
                             variant="ghost"
