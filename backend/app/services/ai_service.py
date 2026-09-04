@@ -49,7 +49,10 @@ async def get_ai_response(
 
     try:
         from openai import AsyncOpenAI  # type: ignore
-        client = AsyncOpenAI(api_key=settings.llm_api_key)
+        client = AsyncOpenAI(
+            api_key=settings.llm_api_key,
+            base_url=settings.llm_base_url if settings.llm_base_url else None,
+        )
 
         lang_instruction = ""
         if language == "hi":

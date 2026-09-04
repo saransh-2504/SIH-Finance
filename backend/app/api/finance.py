@@ -77,3 +77,18 @@ def list_schemes():
         ),
         "disclaimer": DISCLAIMER,
     }
+
+
+@router.get("/mandi-rates")
+def get_mandi_rates(
+    category: str = "Dairy",
+    district: str = "Bengaluru Rural",
+    state: str = "Karnataka",
+):
+    from ..services.mandi_service import get_district_mandi_pricing
+    return get_district_mandi_pricing(
+        business_category=category,
+        district=district,
+        state=state,
+    )
+
