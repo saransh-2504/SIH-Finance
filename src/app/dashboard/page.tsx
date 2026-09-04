@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   ArrowRight,
   BarChart3,
+  BrainCircuit,
   Calculator,
   FileText,
   Mic,
@@ -16,9 +17,10 @@ import { useAuth } from "@/context/auth-context";
 import { useAssessments } from "@/context/assessment-context";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AppShell } from "@/components/app-shell";
+import { MlBusinessPredictor } from "@/components/ml-business-predictor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatInr } from "@/lib/financial";
 
 function VerdictBadge({ verdict }: { verdict: string }) {
@@ -117,9 +119,10 @@ export default function DashboardPage() {
               { href: "/assessment/new", icon: Plus, label: "New Business Assessment", desc: "Analyze a business for your location and capital", color: "bg-[#166534]" },
               { href: "/opportunities", icon: Radar, label: "Business Opportunity Radar", desc: "Find the best business for your capital", color: "bg-[#d97706]" },
               { href: "/compare", icon: BarChart3, label: "Compare Businesses", desc: "Side-by-side feasibility comparison", color: "bg-[#0ea5e9]" },
-              { href: "/finance", icon: Calculator, label: "Financial Planner", desc: "Calculate EMI, stress test and working capital", color: "bg-[#7c3aed]" },
+              { href: "/finance", icon: Calculator, label: "Financial Planner", desc: "DSCR, EMI, stress test and working capital", color: "bg-[#7c3aed]" },
               { href: "/advisor", icon: Mic, label: "Ask AI Advisor", desc: "Get grounded answers about your assessment", color: "bg-[#db2777]" },
               { href: "/reports", icon: FileText, label: "Saved Reports", desc: "View and download feasibility reports", color: "bg-[#0f766e]" },
+              { href: "/ml", icon: BrainCircuit, label: "ML Business Predictor", desc: "AI/ML viability scores, Monte Carlo & seasonal forecast", color: "bg-[#1d4ed8]" },
             ].map(({ href, icon: Icon, label, desc, color }) => (
               <Link key={href} href={href}>
                 <Card className="border-[#d8d1bd] hover:shadow-md transition-shadow cursor-pointer h-full">
@@ -135,6 +138,24 @@ export default function DashboardPage() {
                 </Card>
               </Link>
             ))}
+          </div>
+
+          {/* ML Predictor preview */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <BrainCircuit className="size-5 text-[#1d4ed8]" /> ML Business Intelligence
+                </h2>
+                <p className="text-xs text-[#66715f]">
+                  RandomForest + GradientBoosting · Monte Carlo simulation · 12-month seasonal forecast
+                </p>
+              </div>
+              <Link href="/ml" className="text-sm text-[#166534] hover:underline flex items-center gap-1">
+                Full view <ArrowRight className="size-3" />
+              </Link>
+            </div>
+            <MlBusinessPredictor initialCapital={latest?.available_capital ?? 100000} />
           </div>
 
           {/* Recent assessments */}

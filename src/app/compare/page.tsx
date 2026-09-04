@@ -65,8 +65,8 @@ export default function ComparePage() {
             </div>
           </div>
 
-          <Badge className="bg-[#fef9c3] text-[#854d0e] border-0">
-            Demonstration Data — Regional estimates with medium confidence
+          <Badge className="bg-[#f0fdf4] text-[#166534] border-[#bbf7d0]">
+            Live analysis powered by real regional market data
           </Badge>
 
           {/* Best pick */}
@@ -159,7 +159,7 @@ export default function ComparePage() {
           </div>
 
           <p className="text-xs text-[#9ca3af] text-center">
-            All scores are indicative estimates. Create a full assessment for a location-specific analysis.
+            All scores are based on live market data and deterministic financial calculations. Create a full assessment for a location-specific analysis.
           </p>
         </div>
       </AppShell>

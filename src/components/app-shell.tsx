@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
   BarChart3,
+  BrainCircuit,
   Calculator,
   FileText,
   Landmark,
@@ -29,6 +30,7 @@ const NAV = [
   { href: "/opportunities", label: "Opportunities", icon: Radar },
   { href: "/compare", label: "Compare", icon: BarChart3 },
   { href: "/finance", label: "Finance", icon: Calculator },
+  { href: "/ml", label: "ML Predictor", icon: BrainCircuit },
   { href: "/schemes", label: "Schemes", icon: Landmark },
   { href: "/advisor", label: "AI Advisor", icon: Mic },
   { href: "/reports", label: "Reports", icon: FileText },

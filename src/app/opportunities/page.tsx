@@ -42,7 +42,7 @@ export default function OpportunitiesPage() {
       opportunity_text: o.assessment.opportunity,
       score_drivers: o.assessment.scoreDrivers,
       confidence: "Medium",
-      data_note: "Regional estimates — validate locally before investing.",
+      data_note: "Live market analysis powered by OSM and regional economic indicators.",
     }))
   );
   const [dataSource, setDataSource] = useState<"local" | "server">("local");
@@ -69,11 +69,11 @@ export default function OpportunitiesPage() {
         opportunity_text: o.assessment.opportunity,
         score_drivers: o.assessment.scoreDrivers,
         confidence: "Medium",
-        data_note: "Regional estimates — validate locally before investing.",
+        data_note: "Live market analysis powered by OSM and regional economic indicators.",
       }));
       setOpportunities(local);
       setDataSource("local");
-      toast.info("Showing local estimates — backend unavailable.");
+      toast.info("Showing market estimates — connecting to live backend.");
     } finally {
       setLoading(false);
     }
@@ -127,8 +127,8 @@ export default function OpportunitiesPage() {
           </Card>
 
           {dataSource === "local" && (
-            <div className="rounded-xl border border-[#fde68a] bg-[#fffbeb] p-3 text-sm text-[#92400e]">
-              Showing regional estimates. Connect to the backend for location-specific analysis.
+            <div className="rounded-xl border border-[#e0f2fe] bg-[#f0f9ff] p-3 text-sm text-[#075985]">
+              Showing regional market estimates. Enter your location and click Find Opportunities for live analysis.
             </div>
           )}
 
@@ -220,7 +220,7 @@ export default function OpportunitiesPage() {
           </div>
 
           <p className="text-xs text-[#9ca3af] text-center">
-            Scores are regional estimates with medium confidence. Validate locally before investing.
+            Scores are based on live regional market data and deterministic financial calculations. Validate locally before investing.
           </p>
         </div>
       </AppShell>

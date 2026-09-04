@@ -8,7 +8,7 @@ router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
 
 @router.get("")
-def get_opportunities(
+async def get_opportunities(
     capital: float = Query(..., gt=0, description="Available capital in Rs."),
     state: str = Query("Karnataka"),
     district: str = Query(""),
@@ -17,7 +17,7 @@ def get_opportunities(
 ):
     results = []
     for category in BUSINESS_PROFILES:
-        analysis = build_full_assessment(
+        analysis = await build_full_assessment(
             business_category=category,
             available_capital=capital,
             village=village,
@@ -29,9 +29,22 @@ def get_opportunities(
             "business": category,
             "score": analysis["score"],
             "verdict": analysis["verdict"],
-            "competition": "Very High" if p["competition"] < 50 else "High" if p["competition"] < 65 else "Moderate" if p["competition"] < 78 else "Low",
-            "capital_fit": "Very High" if p["capital"] > 90 else "High" if p["capital"] > 78 else "Medium",
-            "risk": "Low" if p["risk"] > 78 else "Medium" if p["risk"] > 62 else "High",
+            "competition": (
+                "Very High" if p["competition"] < 50
+                else "High" if p["competition"] < 65
+                else "Moderate" if p["competition"] < 78
+                else "Low"
+            ),
+            "capital_fit": (
+                "Very High" if p["capital"] > 90
+                else "High" if p["capital"] > 78
+                else "Medium"
+            ),
+            "risk": (
+                "Low" if p["risk"] > 78
+                else "Medium" if p["risk"] > 62
+                else "High"
+            ),
             "opportunity": "High" if p["opportunity"] > 80 else "Medium",
             "project_cost": analysis["finance"]["project_cost"],
             "scheme": analysis["finance"].get("scheme", {}).get("name", ""),

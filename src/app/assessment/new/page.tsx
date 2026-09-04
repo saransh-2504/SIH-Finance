@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { toast } from "sonner";
 
-const STEPS = ["Location", "Capital", "Business", "Goals"];
+const STEPS = ["Location", "Business", "Capital", "Goals"];
 
 const BUSINESS_CATEGORIES = [
   // 🌾 Agri-Allied
@@ -37,7 +37,7 @@ const BUSINESS_CATEGORIES = [
   { key: "Other", emoji: "📦", group: "Rural" },
 ];
 
-const DEMO_SCENARIOS = [
+const QUICK_START_SCENARIOS = [
   { label: "Hoskote Dairy", village: "Hoskote", block: "Hoskote", district: "Bengaluru Rural", state: "Karnataka", pin_code: "562114", capital: 100000, business: "Dairy Farming" },
   { label: "Rural Tailoring", village: "Nandagudi", block: "Hoskote", district: "Bengaluru Rural", state: "Karnataka", pin_code: "562122", capital: 50000, business: "Tailoring" },
   { label: "Pulse Milling", village: "Sulibele", block: "Hoskote", district: "Bengaluru Rural", state: "Karnataka", pin_code: "562129", capital: 20000, business: "Grain / Pulse Milling" },
@@ -199,10 +199,10 @@ export default function NewAssessmentPage() {
     if (Object.keys(updates).length > 0) {
       setForm((f) => ({ ...f, ...updates }));
       toast.success(`🎯 Voice AI Extracted: ${detected.join(" • ")}`);
-      // Automatically advance to capital/business if recognized
-      if (updates.village && !updates.capital) setStep(2);
-      else if (updates.capital && !updates.business) setStep(3);
-      else if (updates.village && updates.capital && updates.business) setStep(4);
+      // Automatically advance to business/capital if recognized
+      if (updates.village && !updates.business) setStep(2);
+      else if (updates.business && !updates.capital) setStep(3);
+      else if (updates.village && updates.business && updates.capital) setStep(4);
     } else {
       toast.warning("Could not clearly detect details. Try saying: 'Hoskote Dairy 1 lakh'");
     }
@@ -339,13 +339,13 @@ export default function NewAssessmentPage() {
       if (form.pin_code && !/^\d{6}$/.test(form.pin_code)) errs.pin_code = "PIN code must be 6 digits.";
     }
     if (step === 2) {
+      const biz = form.business || form.customBusiness;
+      if (!biz) errs.business = "Select or enter a business category.";
+    }
+    if (step === 3) {
       const cap = Number(form.capital);
       if (!form.capital || isNaN(cap) || cap <= 0) errs.capital = "Enter a valid capital amount greater than zero.";
       if (cap > 5_000_000) errs.capital = "Capital exceeds the supported assessment range (Rs. 50 lakh).";
-    }
-    if (step === 3) {
-      const biz = form.business || form.customBusiness;
-      if (!biz) errs.business = "Select or enter a business category.";
     }
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -392,8 +392,8 @@ export default function NewAssessmentPage() {
     }
   }
 
-  function loadDemo(idx: number) {
-    const s = DEMO_SCENARIOS[idx];
+  function loadQuickStart(idx: number) {
+    const s = QUICK_START_SCENARIOS[idx];
     setForm({
       village: s.village,
       block: s.block,
@@ -510,15 +510,15 @@ export default function NewAssessmentPage() {
             </Button>
           </div>
 
-          {/* Demo scenarios */}
+          {/* Quick Start */}
           <div className="grid gap-2 sm:grid-cols-3">
-            {DEMO_SCENARIOS.map((d, i) => (
+            {QUICK_START_SCENARIOS.map((d, i) => (
               <button
                 key={d.label}
-                onClick={() => loadDemo(i)}
+                onClick={() => loadQuickStart(i)}
                 className="rounded-xl border border-[#d8d1bd] bg-white p-3 text-left hover:border-[#d97706] hover:shadow-sm transition-all"
               >
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#d97706]">Demo data</p>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-[#d97706]">Quick Start</p>
                 <p className="text-sm font-semibold">{d.label}</p>
                 <p className="text-xs text-[#66715f]">{formatInr(d.capital)} capital</p>
               </button>
@@ -606,8 +606,53 @@ export default function NewAssessmentPage() {
             </Card>
           )}
 
-          {/* Step 2 — Capital */}
+          {/* Step 2 — Business */}
           {step === 2 && (
+            <Card className="border-[#d8d1bd]">
+              <CardHeader>
+                <CardTitle>What business are you planning?</CardTitle>
+                <CardDescription>Select a category or enter a custom business idea.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {(["Agri-Allied", "FoodTech", "Rural"] as const).map((group) => (
+                  <div key={group} className="mb-5">
+                    <p className="text-xs font-semibold text-[#d97706] uppercase tracking-wider mb-2">
+                      {group === "Agri-Allied" ? "🌾 Agri-Allied" : group === "FoodTech" ? "🥘 FoodTech & Processing" : "🧵 Rural Enterprise"}
+                    </p>
+                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {BUSINESS_CATEGORIES.filter((c) => c.group === group).map(({ key, emoji }) => (
+                        <button
+                          key={key}
+                          onClick={() => update("business", key)}
+                          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all hover:shadow-sm ${form.business === key ? "border-[#166534] bg-[#f0fdf4] shadow-sm" : "border-[#e5e7eb] bg-white"}`}
+                        >
+                          <span className="text-xl">{emoji}</span>
+                          <p className={`text-sm font-medium ${form.business === key ? "text-[#166534]" : "text-[#1f2937]"}`}>
+                            {key}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                <div className="mt-4 space-y-1">
+                  <label className="text-sm font-medium">Or enter a custom business idea</label>
+                  <Input
+                    value={form.customBusiness}
+                    onChange={(e) => {
+                      update("customBusiness", e.target.value);
+                      if (e.target.value) update("business", "");
+                    }}
+                    placeholder="e.g., Mushroom cultivation, Solar panel servicing…"
+                  />
+                </div>
+                {errors.business && <p className="mt-2 text-xs text-[#dc2626]">{errors.business}</p>}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Step 3 — Capital */}
+          {step === 3 && (
             <Card className="border-[#d8d1bd]">
               <CardHeader>
                 <CardTitle>How much can you contribute?</CardTitle>
@@ -658,51 +703,6 @@ export default function NewAssessmentPage() {
                     {finance.unsupportedReason}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 3 — Business */}
-          {step === 3 && (
-            <Card className="border-[#d8d1bd]">
-              <CardHeader>
-                <CardTitle>What business are you planning?</CardTitle>
-                <CardDescription>Select a category or enter a custom business idea.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {(["Agri-Allied", "FoodTech", "Rural"] as const).map((group) => (
-                  <div key={group} className="mb-5">
-                    <p className="text-xs font-semibold text-[#d97706] uppercase tracking-wider mb-2">
-                      {group === "Agri-Allied" ? "🌾 Agri-Allied" : group === "FoodTech" ? "🥘 FoodTech & Processing" : "🧵 Rural Enterprise"}
-                    </p>
-                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                      {BUSINESS_CATEGORIES.filter((c) => c.group === group).map(({ key, emoji }) => (
-                        <button
-                          key={key}
-                          onClick={() => update("business", key)}
-                          className={`flex items-center gap-3 rounded-xl border p-3 text-left transition-all hover:shadow-sm ${form.business === key ? "border-[#166534] bg-[#f0fdf4] shadow-sm" : "border-[#e5e7eb] bg-white"}`}
-                        >
-                          <span className="text-xl">{emoji}</span>
-                          <p className={`text-sm font-medium ${form.business === key ? "text-[#166534]" : "text-[#1f2937]"}`}>
-                            {key}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                <div className="mt-4 space-y-1">
-                  <label className="text-sm font-medium">Or enter a custom business idea</label>
-                  <Input
-                    value={form.customBusiness}
-                    onChange={(e) => {
-                      update("customBusiness", e.target.value);
-                      if (e.target.value) update("business", "");
-                    }}
-                    placeholder="e.g., Mushroom cultivation, Solar panel servicing…"
-                  />
-                </div>
-                {errors.business && <p className="mt-2 text-xs text-[#dc2626]">{errors.business}</p>}
               </CardContent>
             </Card>
           )}
